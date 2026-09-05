@@ -1,4 +1,5 @@
 pipeline {
+
     agent {
         docker {
             image 'hashicorp/terraform:latest'
@@ -19,12 +20,19 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                script {
-                    echo "Selected Environment: ${params.ENVIRONMENT}"
-
-                    dir('day1') {
+                dir('day1') {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'aws-credentials',
+                            usernameVariable: 'AWS_ACCESS_KEY_ID',
+                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        )
+                    ]) {
                         sh '''
+                            echo "Terraform Version:"
                             terraform version
+
+                            echo "Initializing Terraform..."
                             terraform init
                         '''
                     }
@@ -35,9 +43,21 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('day1') {
-                    sh """
-                        terraform plan -var-file=${params.ENVIRONMENT}.tfvars
-                    """
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'aws-credentials',
+                            usernameVariable: 'AWS_ACCESS_KEY_ID',
+                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        )
+                    ]) {
+                        sh """
+                            echo "Environment: ${params.ENVIRONMENT}"
+
+                            terraform plan \
+                              -var-file=${params.ENVIRONMENT}.tfvars \
+                              -out=tfplan
+                        """
+                    }
                 }
             }
         }
@@ -45,7 +65,7 @@ pipeline {
         stage('Approval') {
             steps {
                 input(
-                    message: "Do you want to apply Terraform changes for ${params.ENVIRONMENT}?",
+                    message: "Do you want to APPLY Terraform changes for ${params.ENVIRONMENT}?",
                     ok: 'Apply'
                 )
             }
@@ -54,9 +74,17 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('day1') {
-                    sh """
-                        terraform apply -auto-approve -var-file=${params.ENVIRONMENT}.tfvars
-                    """
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'aws-credentials',
+                            usernameVariable: 'AWS_ACCESS_KEY_ID',
+                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        )
+                    ]) {
+                        sh '''
+                            terraform apply -auto-approve tfplan
+                        '''
+                    }
                 }
             }
         }
@@ -64,7 +92,9 @@ pipeline {
         stage('Terraform Output') {
             steps {
                 dir('day1') {
-                    sh 'terraform output'
+                    sh '''
+                        terraform output
+                    '''
                 }
             }
         }
