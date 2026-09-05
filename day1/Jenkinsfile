@@ -1,6 +1,11 @@
 pipeline {
+
     agent {
-        label 'dev'
+        docker {
+            image 'hashicorp/terraform:latest'
+            args '--entrypoint=""'
+            reuseNode true
+        }
     }
 
     parameters {
@@ -14,104 +19,47 @@ pipeline {
     stages {
 
         stage('Terraform Init') {
-            agent {
-                docker {
-                    image 'hashicorp/terraform:latest'
-                    args '--entrypoint="" --user 0'
-                    reuseNode true
-                }
-            }
-
             steps {
-                echo "Selected Environment: ${params.ENVIRONMENT}"
-
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-credentials',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    sh '''
-                        terraform version
-                        terraform init
-                    '''
-                }
+                sh '''
+                    terraform version
+                    terraform init
+                '''
             }
         }
 
         stage('Terraform Plan') {
-            agent {
-                docker {
-                    image 'hashicorp/terraform:latest'
-                    args '--entrypoint="" --user 0'
-                    reuseNode true
-                }
-            }
-
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-credentials',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    sh 'terraform plan'
-                }
+                sh """
+                    echo "Selected Environment: ${params.ENVIRONMENT}"
+
+                    terraform plan \
+                        -var-file="${params.ENVIRONMENT}.tfvars"
+                """
             }
         }
 
         stage('Approval') {
             steps {
                 input(
-                    message: "Do you want to APPLY Terraform changes for ${params.ENVIRONMENT}?",
-                    ok: 'Proceed'
+                    message: "Do you want to apply changes for ${params.ENVIRONMENT}?",
+                    ok: 'Apply'
                 )
             }
         }
 
         stage('Terraform Apply') {
-            agent {
-                docker {
-                    image 'hashicorp/terraform:latest'
-                    args '--entrypoint="" --user 0'
-                    reuseNode true
-                }
-            }
-
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-credentials',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    sh 'terraform apply -auto-approve'
-                }
+                sh """
+                    terraform apply \
+                        -var-file="${params.ENVIRONMENT}.tfvars" \
+                        -auto-approve
+                """
             }
         }
 
         stage('Terraform Output') {
-            agent {
-                docker {
-                    image 'hashicorp/terraform:latest'
-                    args '--entrypoint="" --user 0'
-                    reuseNode true
-                }
-            }
-
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-credentials',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    sh 'terraform output'
-                }
+                sh 'terraform output'
             }
         }
     }
