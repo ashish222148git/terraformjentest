@@ -1,9 +1,8 @@
 pipeline {
-
     agent {
         docker {
             image 'hashicorp/terraform:latest'
-            args '--entrypoint=""'
+            args '--entrypoint="" --user 0'
             reuseNode true
         }
     }
@@ -20,28 +19,33 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                sh '''
-                    terraform version
-                    terraform init
-                '''
+                script {
+                    echo "Selected Environment: ${params.ENVIRONMENT}"
+
+                    dir('day1') {
+                        sh '''
+                            terraform version
+                            terraform init
+                        '''
+                    }
+                }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh """
-                    echo "Selected Environment: ${params.ENVIRONMENT}"
-
-                    terraform plan \
-                        -var-file="${params.ENVIRONMENT}.tfvars"
-                """
+                dir('day1') {
+                    sh """
+                        terraform plan -var-file=${params.ENVIRONMENT}.tfvars
+                    """
+                }
             }
         }
 
         stage('Approval') {
             steps {
                 input(
-                    message: "Do you want to apply changes for ${params.ENVIRONMENT}?",
+                    message: "Do you want to apply Terraform changes for ${params.ENVIRONMENT}?",
                     ok: 'Apply'
                 )
             }
@@ -49,17 +53,19 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                sh """
-                    terraform apply \
-                        -var-file="${params.ENVIRONMENT}.tfvars" \
-                        -auto-approve
-                """
+                dir('day1') {
+                    sh """
+                        terraform apply -auto-approve -var-file=${params.ENVIRONMENT}.tfvars
+                    """
+                }
             }
         }
 
         stage('Terraform Output') {
             steps {
-                sh 'terraform output'
+                dir('day1') {
+                    sh 'terraform output'
+                }
             }
         }
     }
