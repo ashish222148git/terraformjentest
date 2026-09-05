@@ -1,0 +1,72 @@
+pipeline {
+    agent {
+        docker {
+            image 'hashicorp/terraform:latest'
+            args '--entrypoint="" --user 0'
+            reuseNode true
+        }
+    }
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['sit', 'ppte', 'prod'],
+            description: 'Select the environment'
+        )
+    }
+
+    stages {
+
+        stage('Terraform Init') {
+            steps {
+                script {
+                    echo "Selected Environment: ${params.ENVIRONMENT}"
+
+                    dir('day1') {
+                        sh '''
+                            terraform version
+                            terraform init
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                dir('day1') {
+                    sh """
+                        terraform plan -var-file=${params.ENVIRONMENT}.tfvars
+                    """
+                }
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input(
+                    message: "Do you want to apply Terraform changes for ${params.ENVIRONMENT}?",
+                    ok: 'Apply'
+                )
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('day1') {
+                    sh """
+                        terraform apply -auto-approve -var-file=${params.ENVIRONMENT}.tfvars
+                    """
+                }
+            }
+        }
+
+        stage('Terraform Output') {
+            steps {
+                dir('day1') {
+                    sh 'terraform output'
+                }
+            }
+        }
+    }
+}
