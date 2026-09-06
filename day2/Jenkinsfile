@@ -1,7 +1,7 @@
 pipeline {
-
     agent {
         docker {
+            label 'dev'
             image 'hashicorp/terraform:latest'
             args '--entrypoint="" --user 0'
             reuseNode true
@@ -21,21 +21,10 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir('day2') {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'aws-credentials',
-                            usernameVariable: 'AWS_ACCESS_KEY_ID',
-                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                        )
-                    ]) {
-                        sh '''
-                            echo "Terraform Version:"
-                            terraform version
-
-                            echo "Initializing Terraform..."
-                            terraform init
-                        '''
-                    }
+                    sh '''
+                        terraform version
+                        terraform init
+                    '''
                 }
             }
         }
@@ -43,21 +32,10 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('day2') {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'aws-credentials',
-                            usernameVariable: 'AWS_ACCESS_KEY_ID',
-                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                        )
-                    ]) {
-                        sh """
-                            echo "Environment: ${params.ENVIRONMENT}"
-
-                            terraform plan \
-                              -var-file=${params.ENVIRONMENT}.tfvars \
-                              -out=tfplan
-                        """
-                    }
+                    sh '''
+                        echo "Environment: ${ENVIRONMENT}"
+                        terraform plan -var-file=${ENVIRONMENT}.tfvars
+                    '''
                 }
             }
         }
@@ -74,17 +52,9 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('day2') {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'aws-credentials',
-                            usernameVariable: 'AWS_ACCESS_KEY_ID',
-                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                        )
-                    ]) {
-                        sh '''
-                            terraform apply -auto-approve tfplan
-                        '''
-                    }
+                    sh '''
+                        terraform apply -auto-approve -var-file=${ENVIRONMENT}.tfvars
+                    '''
                 }
             }
         }
@@ -92,9 +62,7 @@ pipeline {
         stage('Terraform Output') {
             steps {
                 dir('day2') {
-                    sh '''
-                        terraform output
-                    '''
+                    sh 'terraform output'
                 }
             }
         }
