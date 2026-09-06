@@ -20,7 +20,7 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('day1') {
+                dir('day2') {
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'aws-credentials',
@@ -42,7 +42,7 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                dir('day1') {
+                dir('day2') {
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'aws-credentials',
@@ -73,7 +73,7 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                dir('day1') {
+                dir('day2') {
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'aws-credentials',
@@ -91,7 +91,7 @@ pipeline {
 
         stage('Terraform Output') {
             steps {
-                dir('day1') {
+                dir('day2') {
                     sh '''
                         terraform output
                     '''
